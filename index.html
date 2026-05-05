@@ -53,13 +53,15 @@
                 <p class="subtitle">منصة الاختبارات التعليمية المتخصصة</p>
             </header>
 
+            <!-- خلفية النجوم المتحركة -->
+            <div class="arabic-pattern" id="arabicPattern"></div>
+
             <div id="testsGrid" class="tests-grid">
                 <!-- سيتم توليد الاختبارات هنا -->
             </div>
         </div>
     </div>
 
-    <!-- صفحة الاختبار -->
     <div id="testPage" class="page">
         <nav class="navbar">
             <div class="nav-brand">
@@ -75,6 +77,18 @@
                 </div>
             </div>
         </nav>
+
+        <!-- شريط تتبع النتائج -->
+        <div id="scoreTracker" class="score-tracker" style="display: none;">
+            <div class="score-item correct-score">
+                <i class="fas fa-check-circle"></i>
+                <span id="correctCount">0</span>
+            </div>
+            <div class="score-item wrong-score">
+                <i class="fas fa-times-circle"></i>
+                <span id="wrongCount">0</span>
+            </div>
+        </div>
 
         <div class="container">
             <div class="question-card">

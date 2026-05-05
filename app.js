@@ -727,6 +727,58 @@ function renderTestsGrid() {
             card.classList.add('new-badge');
         }
         
+        // التحقق من حالة الطالب مع هذا الاختبار
+        const studentProgress = DB.students.find(
+            s => s.name === DB.currentUser.name && s.testId === test.id
+        );
+        
+        let statusHTML = '';
+        if (studentProgress && studentProgress.completed) {
+            // اختبار مكتمل
+            statusHTML = `
+                <div class="test-status completed">
+                    <div>
+                        <i class="fas fa-check-circle"></i> مكتمل
+                        <div class="score-details">
+                            <span style="color: var(--primary-color);"><i class="fas fa-check"></i> ${studentProgress.score} صحيح</span>
+                            <span style="color: var(--danger-color);"><i class="fas fa-times"></i> ${test.questions.length - studentProgress.score} خطأ</span>
+                        </div>
+                    </div>
+                    <button class="btn-retake" onclick="event.stopPropagation(); retakeTestFromGrid(${test.id})">
+                        <i class="fas fa-redo"></i> إعادة
+                    </button>
+                </div>
+            `;
+        } else if (studentProgress && !studentProgress.completed && studentProgress.currentQuestion > 0) {
+            // اختبار غير مكتمل但有 تقدم
+            const percentage = Math.round((studentProgress.currentQuestion / test.questions.length) * 100);
+            statusHTML = `
+                <div class="test-status incomplete">
+                    <div>
+                        <i class="fas fa-clock"></i> قيد التقدم (${percentage}%)
+                        <div class="score-details">
+                            <span><i class="fas fa-question"></i> ${studentProgress.currentQuestion} من ${test.questions.length}</span>
+                        </div>
+                    </div>
+                    <div class="test-status-buttons">
+                        <button class="btn-continue" onclick="event.stopPropagation(); continueTest(${test.id})">
+                            <i class="fas fa-play"></i> أكمل
+                        </button>
+                        <button class="btn-retake" onclick="event.stopPropagation(); retakeTestFromGrid(${test.id})">
+                            <i class="fas fa-redo"></i> إعادة
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else {
+            // اختبار لم يبدأ
+            statusHTML = `
+                <div class="test-status" style="background: rgba(6, 78, 59, 0.05); border: 2px dashed var(--border-color); color: var(--text-secondary);">
+                    <i class="fas fa-circle-notch"></i> لم يبدأ بعد
+                </div>
+            `;
+        }
+        
         card.innerHTML = `
             <div class="test-icon">
                 <i class="fas ${test.icon || 'fa-book'}"></i>
@@ -736,6 +788,7 @@ function renderTestsGrid() {
             <div class="test-meta">
                 <span><i class="fas fa-question-circle"></i> ${test.questions.length} سؤال</span>
             </div>
+            ${statusHTML}
         `;
         
         card.addEventListener('click', () => startTest(test.id));
@@ -768,6 +821,25 @@ function startTest(testId) {
     startTimer();
 }
 
+// أكمل الاختبار من الشبكة
+function continueTest(testId) {
+    startTest(testId);
+}
+
+// إعادة الاختبار من الشبكة
+function retakeTestFromGrid(testId) {
+    const test = DB.tests.find(t => t.id === testId);
+    if (!test) return;
+    
+    // حذف التقدم السابق
+    DB.students = DB.students.filter(
+        s => !(s.name === DB.currentUser.name && s.testId === testId)
+    );
+    
+    saveData();
+    startTest(testId);
+}
+
 // عرض السؤال الحالي
 function renderQuestion() {
     const test = DB.currentTest;
@@ -798,21 +870,60 @@ function renderQuestion() {
     document.getElementById('progressFill').style.width = `${progress}%`;
     document.getElementById('questionCounter').textContent = `${DB.currentQuestionIndex + 1}/${test.questions.length}`;
     
+    // إظهار شريط تتبع النتائج
+    document.getElementById('scoreTracker').style.display = 'flex';
+    updateScoreTracker();
+    
     document.getElementById('nextBtn').disabled = true;
+}
+
+// تحديث شريط تتبع النتائج
+function updateScoreTracker() {
+    let correct = 0;
+    let wrong = 0;
+    
+    DB.userAnswers.forEach((answer, index) => {
+        if (answer !== undefined && DB.currentTest.questions[index]) {
+            if (answer === DB.currentTest.questions[index].correct) {
+                correct++;
+            } else {
+                wrong++;
+            }
+        }
+    });
+    
+    document.getElementById('correctCount').textContent = correct;
+    document.getElementById('wrongCount').textContent = wrong;
 }
 
 // اختيار إجابة
 function selectOption(index) {
     const buttons = document.querySelectorAll('.option-btn');
+    const currentQuestion = DB.currentTest.questions[DB.currentQuestionIndex];
+    
     buttons.forEach((btn, i) => {
-        btn.classList.remove('selected');
+        btn.classList.remove('selected', 'correct', 'wrong');
+        
         if (i === index) {
             btn.classList.add('selected');
+            
+            // التحقق من الإجابة فوراً
+            if (i === currentQuestion.correct) {
+                btn.classList.add('correct');
+                // تشغيل صوت نجاح خفيف (اختياري)
+            } else {
+                btn.classList.add('wrong');
+                // إظهار الإجابة الصحيحة
+                buttons[currentQuestion.correct].classList.add('correct');
+            }
         }
     });
     
     DB.userAnswers[DB.currentQuestionIndex] = index;
     document.getElementById('nextBtn').disabled = false;
+    
+    // تحديث شريط النتائج
+    updateScoreTracker();
     
     // حفظ التقدم
     saveProgress();
@@ -863,9 +974,13 @@ function finishTest() {
     test.questions.forEach((question, index) => {
         if (DB.userAnswers[index] === question.correct) {
             score++;
-            showCelebration();
         }
     });
+    
+    // احتفال إذا كانت النتيجة جيدة
+    if (score > test.questions.length / 2) {
+        showCelebration();
+    }
     
     // تحديث سجل الطالب
     const studentProgress = DB.students.find(
@@ -881,6 +996,9 @@ function finishTest() {
     }
     
     saveData();
+    
+    // إخفاء شريط تتبع النتائج
+    document.getElementById('scoreTracker').style.display = 'none';
     
     // عرض النتيجة
     document.getElementById('scoreValue').textContent = score;
@@ -910,20 +1028,39 @@ function showCelebration() {
     const celebration = document.getElementById('celebration');
     celebration.classList.add('active');
     
-    // إنشاء confetti
-    for (let i = 0; i < 50; i++) {
+    // إنشاء confetti بألوان ذهبية وخضراء
+    for (let i = 0; i < 80; i++) {
         const confetti = document.createElement('div');
         confetti.className = 'confetti';
         confetti.style.left = Math.random() * 100 + '%';
-        confetti.style.backgroundColor = ['#6366f1', '#10b981', '#f59e0b', '#ef4444'][Math.floor(Math.random() * 4)];
+        confetti.style.backgroundColor = ['#ffd700', '#10b981', '#d4af37', '#f59e0b'][Math.floor(Math.random() * 4)];
         confetti.style.animationDelay = Math.random() * 3 + 's';
+        confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
         celebration.appendChild(confetti);
     }
     
     setTimeout(() => {
         celebration.classList.remove('active');
         celebration.innerHTML = '<div class="confetti"></div>';
-    }, 3000);
+    }, 4000);
+}
+
+// إنشاء نجوم الخلفية
+function createStars() {
+    const pattern = document.getElementById('arabicPattern');
+    if (!pattern) return;
+    
+    pattern.innerHTML = '';
+    for (let i = 0; i < 30; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        star.innerHTML = '✦';
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.fontSize = (Math.random() * 20 + 10) + 'px';
+        star.style.animationDelay = Math.random() * 3 + 's';
+        pattern.appendChild(star);
+    }
 }
 
 // مؤقت النشاط
@@ -1288,4 +1425,23 @@ function updateTestFilters() {
 }
 
 // بدء التطبيق
+function init() {
+    loadData();
+    setupEventListeners();
+    createStars(); // إنشاء نجوم الخلفية
+    
+    if (DB.currentUser) {
+        if (DB.currentUser.name === DB.adminName) {
+            showPage('adminPage');
+            renderAdminDashboard();
+        } else {
+            document.getElementById('userName').textContent = DB.currentUser.name;
+            showPage('mainPage');
+            renderTestsGrid();
+        }
+    } else {
+        showPage('loginPage');
+    }
+}
+
 init();
