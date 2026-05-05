@@ -618,9 +618,12 @@ async function loadData() {
         // ترتيب الاختبارات حسب التاريخ يدوياً
         DB.tests.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         
-        // إذا لم تكن هناك اختبارات، نضيف الاختبارات الافتراضية
-        if (DB.tests.length === 0) {
-            await createDefaultTests();
+        // إذا لم تكن هناك اختبارات، نضيف الاختبارات الافتراضية (مرة واحدة فقط عند التهيئة)
+        // ملاحظة: تم إزالة هذا الاستدعاء التلقائي لمنع التكرار، يجب استخدام أداة مسح البيانات لإنشاء الاختبارات
+        if (DB.tests.length === 0 && !window.defaultTestsCreated) {
+            window.defaultTestsCreated = true;
+            // لا ننشئ اختبارات تلقائياً anymore لتجنب التكرار
+            console.log('لا توجد اختبارات في قاعدة البيانات. يرجى استخدام أداة clear_data.html لإنشاء الاختبارات الافتراضية.');
         }
         
         // تحميل الطلاب بدون انتظار
@@ -633,10 +636,10 @@ async function loadData() {
         console.log('تم تحميل البيانات:', DB.tests.length, 'اختبار,', DB.students.length, 'طالب');
     } catch (error) {
         console.error('Error loading data:', error);
-        // في حالة الخطأ، نستخدم البيانات الفارغة ونحاول إنشاء الافتراضية
+        // في حالة الخطأ، نستخدم البيانات الفارغة
         DB.tests = [];
         DB.students = [];
-        await createDefaultTests();
+        console.log('حدث خطأ أثناء تحميل البيانات. يرجى استخدام أداة clear_data.html لإنشاء الاختبارات الافتراضية.');
     }
 }
 
@@ -1627,13 +1630,28 @@ async function handleJsonUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
     
+    // تعطيل الزر مؤقتاً لمنع النقر المتكرر
+    const uploadBtn = document.querySelector('input[type="file"]');
+    if (uploadBtn) uploadBtn.disabled = true;
+    
     const reader = new FileReader();
     reader.onload = async function(event) {
         try {
             const data = JSON.parse(event.target.result);
             
+            const newTestName = data.name || 'قسم جديد';
+            
+            // التحقق مما إذا كان القسم موجوداً مسبقاً (بناءً على الاسم)
+            const existingTest = DB.tests.find(t => t.name === newTestName);
+            if (existingTest) {
+                alert(`هذا القسم "${newTestName}" موجود مسبقاً! لن يتم إضافته مرة أخرى.`);
+                document.getElementById('jsonFile').value = '';
+                if (uploadBtn) uploadBtn.disabled = false;
+                return;
+            }
+            
             const newTest = {
-                name: data.name || 'قسم جديد',
+                name: newTestName,
                 description: data.description || '',
                 icon: data.icon || 'fa-book',
                 questions: data.questions || [],
@@ -1652,6 +1670,9 @@ async function handleJsonUpload(e) {
             alert('تم إضافة القسم بنجاح!');
         } catch (error) {
             alert('خطأ في قراءة الملف. تأكد من صحة صيغة JSON');
+        } finally {
+            // إعادة تفعيل الزر
+            if (uploadBtn) uploadBtn.disabled = false;
         }
     };
     reader.readAsText(file);
