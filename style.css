@@ -414,18 +414,17 @@ body::before {
     border-color: var(--gold);
 }
 
-.test-card.new-badge::after {
-    content: 'جديد';
-    position: absolute;
-    top: 15px;
-    left: 15px;
-    background: linear-gradient(135deg, #f59e0b, #ef4444);
+.new-badge-label {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
     color: white;
-    padding: 5px 15px;
-    border-radius: 20px;
-    font-size: 12px;
+    padding: 3px 12px;
+    border-radius: 15px;
+    font-size: 11px;
     font-weight: 700;
+    margin-right: 8px;
     animation: newBadgePulse 2s ease-in-out infinite;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
 }
 
 @keyframes newBadgePulse {
@@ -460,6 +459,9 @@ body::before {
     font-size: 20px;
     margin-bottom: 10px;
     color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
 }
 
 .test-card p {
@@ -619,6 +621,9 @@ body::before {
 .option-btn.wrong {
     border-color: var(--danger-color);
     background: rgba(239, 68, 68, 0.1);
+}
+
+.shake {
     animation: shakeError 0.5s ease-in-out;
 }
 

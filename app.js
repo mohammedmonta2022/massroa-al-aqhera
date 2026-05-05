@@ -723,9 +723,7 @@ function renderTestsGrid() {
         card.className = 'test-card';
         
         // إضافة badge "جديد" إذا كان القسم جديدًا
-        if (now - test.createdAt < fiveDays) {
-            card.classList.add('new-badge');
-        }
+        const isNew = now - test.createdAt < fiveDays;
         
         // التحقق من حالة الطالب مع هذا الاختبار
         const studentProgress = DB.students.find(
@@ -783,7 +781,7 @@ function renderTestsGrid() {
             <div class="test-icon">
                 <i class="fas ${test.icon || 'fa-book'}"></i>
             </div>
-            <h3>${test.name}</h3>
+            <h3>${test.name} ${isNew ? '<span class="new-badge-label">جديد</span>' : ''}</h3>
             <p>${test.description}</p>
             <div class="test-meta">
                 <span><i class="fas fa-question-circle"></i> ${test.questions.length} سؤال</span>
@@ -861,6 +859,7 @@ function renderQuestion() {
         const btn = document.createElement('button');
         btn.className = 'option-btn';
         btn.textContent = option;
+        btn.disabled = false; // إعادة تفعيل الأزرار عند سؤال جديد
         btn.addEventListener('click', () => selectOption(index));
         // إضافة أنميشن دخول للخيارات
         btn.style.animation = `fadeInUp 0.4s ease-out ${index * 0.1}s backwards`;
@@ -903,6 +902,9 @@ function selectOption(index) {
     const buttons = document.querySelectorAll('.option-btn');
     const currentQuestion = DB.currentTest.questions[DB.currentQuestionIndex];
     
+    // تعطيل جميع الأزرار لمنع تغيير الإجابة
+    buttons.forEach(btn => btn.disabled = true);
+    
     buttons.forEach((btn, i) => {
         btn.classList.remove('selected', 'correct', 'wrong');
         
@@ -916,6 +918,8 @@ function selectOption(index) {
                 showMiniCelebration(btn);
             } else {
                 btn.classList.add('wrong');
+                // إضافة تأثير الاهتزاز
+                btn.classList.add('shake');
                 // إظهار الإجابة الصحيحة
                 buttons[currentQuestion.correct].classList.add('correct');
             }
@@ -930,10 +934,10 @@ function selectOption(index) {
     // حفظ التقدم
     saveProgress();
     
-    // الانتقال للسؤال التالي بعد تأخير قصير
+    // الانتقال للسؤال التالي بعد ثانيتين
     setTimeout(() => {
         nextQuestion();
-    }, 1500);
+    }, 2000);
 }
 
 // حفظ تقدم الطالب
