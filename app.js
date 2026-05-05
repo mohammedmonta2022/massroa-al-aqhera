@@ -1,23 +1,21 @@
-// قاعدة البيانات المحلية
+// Firebase Configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCA4tJeZiDUKqEezjlW8UPS9Xv-EnHfwrc",
+  authDomain: "unity-msaed.firebaseapp.com",
+  projectId: "unity-msaed",
+  storageBucket: "unity-msaed.firebasestorage.app",
+  messagingSenderId: "237281388685",
+  appId: "1:237281388685:web:d9d143eeba27a5193b1ac4",
+  measurementId: "G-2QE1ZF3NNT"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// قاعدة البيانات المحلية (كـ cache)
 const DB = {
-    tests: [
-        {
-            id: 1,
-            name: 'اختبار الخاقانية',
-            description: 'بنك الأسئلة التخصصي الشامل في المنظومة الخاقانية (40 سؤالاً)',
-            icon: 'fa-book-quran',
-            questions: [],
-            createdAt: Date.now()
-        },
-        {
-            id: 2,
-            name: 'اختبار الأصول الستة',
-            description: 'الأصول الستة في العقيدة والدعوة',
-            icon: 'fa-star-and-crescent',
-            questions: [],
-            createdAt: Date.now()
-        }
-    ],
+    tests: [],
     students: [],
     currentUser: null,
     currentTest: null,
@@ -607,32 +605,131 @@ function init() {
 }
 
 // تحميل البيانات من localStorage
-function loadData() {
-    const savedData = localStorage.getItem('quizAppDB');
-    if (savedData) {
-        const parsed = JSON.parse(savedData);
-        DB.students = parsed.students || [];
-        DB.tests = parsed.tests || DB.tests;
+// تحميل البيانات من Firebase
+async function loadData() {
+    try {
+        // تحميل الأقسام/الاختبارات
+        const testsSnapshot = await db.collection('tests').orderBy('createdAt', 'desc').get();
+        DB.tests = [];
+        testsSnapshot.forEach(doc => {
+            DB.tests.push({ id: doc.id, ...doc.data() });
+        });
         
-        // إذا لم تكن هناك أسئلة، نضيف الأسئلة الافتراضية
-        if (DB.tests[0].questions.length === 0) {
-            DB.tests[0].questions = khaganiaQuestions;
-            DB.tests[1].questions = usoolQuestions;
-            saveData();
+        // إذا لم تكن هناك اختبارات، نضيف الاختبارات الافتراضية
+        if (DB.tests.length === 0) {
+            await createDefaultTests();
         }
-    } else {
-        DB.tests[0].questions = khaganiaQuestions;
-        DB.tests[1].questions = usoolQuestions;
-        saveData();
+        
+        // تحميل الطلاب
+        const studentsSnapshot = await db.collection('students').get();
+        DB.students = [];
+        studentsSnapshot.forEach(doc => {
+            DB.students.push({ id: doc.id, ...doc.data() });
+        });
+    } catch (error) {
+        console.error('Error loading data:', error);
+        alert('حدث خطأ في تحميل البيانات. تأكد من اتصالك بالإنترنت.');
     }
 }
 
-// حفظ البيانات في localStorage
-function saveData() {
-    localStorage.setItem('quizAppDB', JSON.stringify({
-        tests: DB.tests,
-        students: DB.students
-    }));
+// إنشاء الاختبارات الافتراضية
+async function createDefaultTests() {
+    const defaultTests = [
+        {
+            name: 'اختبار الخاقانية',
+            description: 'بنك الأسئلة التخصصي الشامل في المنظومة الخاقانية (40 سؤالاً)',
+            icon: 'fa-book-quran',
+            questions: khaganiaQuestions,
+            createdAt: Date.now()
+        },
+        {
+            name: 'اختبار الأصول الستة',
+            description: 'الأصول الستة في العقيدة والدعوة',
+            icon: 'fa-star-and-crescent',
+            questions: usoolQuestions,
+            createdAt: Date.now()
+        }
+    ];
+    
+    for (const test of defaultTests) {
+        await db.collection('tests').add(test);
+    }
+    
+    // إعادة التحميل
+    await loadData();
+}
+
+// حفظ البيانات في Firebase
+async function saveData() {
+    // ملاحظة: البيانات تُحفظ مباشرة عند كل عملية تعديل
+    // هذه الدالة للتوافق مع الكود القديم
+}
+
+// حفظ اختبار في Firebase
+async function saveTest(testData) {
+    try {
+        if (testData.id) {
+            await db.collection('tests').doc(testData.id).update(testData);
+        } else {
+            await db.collection('tests').add(testData);
+        }
+        await loadData();
+    } catch (error) {
+        console.error('Error saving test:', error);
+    }
+}
+
+// حذف اختبار من Firebase
+async function deleteTestFromFirebase(testId) {
+    try {
+        await db.collection('tests').doc(testId).delete();
+        // حذف أسئلة الطلاب المرتبطة
+        const studentsSnapshot = await db.collection('students')
+            .where('testId', '==', testId)
+            .get();
+        const batch = db.batch();
+        studentsSnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+        await loadData();
+    } catch (error) {
+        console.error('Error deleting test:', error);
+    }
+}
+
+// حفظ طالب في Firebase
+async function saveStudent(studentData) {
+    try {
+        if (studentData.id) {
+            await db.collection('students').doc(studentData.id).update(studentData);
+        } else {
+            await db.collection('students').add(studentData);
+        }
+        await loadData();
+    } catch (error) {
+        console.error('Error saving student:', error);
+    }
+}
+
+// تحديث بيانات طالب
+async function updateStudent(studentId, studentData) {
+    try {
+        await db.collection('students').doc(studentId).update(studentData);
+        await loadData();
+    } catch (error) {
+        console.error('Error updating student:', error);
+    }
+}
+
+// حذف طالب من Firebase
+async function deleteStudentFromFirebase(studentId) {
+    try {
+        await db.collection('students').doc(studentId).delete();
+        await loadData();
+    } catch (error) {
+        console.error('Error deleting student:', error);
+    }
 }
 
 // إعداد مستمعي الأحداث
@@ -669,7 +766,7 @@ function setupEventListeners() {
 }
 
 // معالجة تسجيل الدخول
-function handleLogin(e) {
+async function handleLogin(e) {
     e.preventDefault();
     const fullName = document.getElementById('fullName').value.trim();
     
@@ -692,8 +789,6 @@ function handleLogin(e) {
         showPage('mainPage');
         renderTestsGrid();
     }
-    
-    saveData();
 }
 
 // معالجة تسجيل الخروج
@@ -795,13 +890,13 @@ function renderTestsGrid() {
 }
 
 // بدء الاختبار
-function startTest(testId, resume = false) {
-    const test = DB.tests.find(t => t.id === testId);
+async function startTest(testId, resume = false) {
+    const test = DB.tests.find(t => t.id === testId || t.name === testId);
     if (!test) return;
     
     // التحقق من تقدم الطالب السابق
     const studentProgress = DB.students.find(
-        s => s.name === DB.currentUser.name && s.testId === testId
+        s => s.name === DB.currentUser.name && s.testId === (test.id || testId)
     );
     
     // إذا كان هناك تقدم ولم يطلب المستخدم الإعادة صراحة، اعرض الخيارات
@@ -854,16 +949,24 @@ function continueTest(testId) {
 }
 
 // إعادة الاختبار من الشبكة
-function retakeTestFromGrid(testId) {
+async function retakeTestFromGrid(testId) {
     const test = DB.tests.find(t => t.id === testId);
     if (!test) return;
     
-    // حذف التقدم السابق
-    DB.students = DB.students.filter(
-        s => !(s.name === DB.currentUser.name && s.testId === testId)
+    // حذف التقدم السابق من Firebase
+    const studentToDelete = DB.students.find(
+        s => s.name === DB.currentUser.name && s.testId === testId
     );
     
-    saveData();
+    if (studentToDelete && studentToDelete.id) {
+        await deleteStudentFromFirebase(studentToDelete.id);
+    } else {
+        // حذف محلي فقط
+        DB.students = DB.students.filter(
+            s => !(s.name === DB.currentUser.name && s.testId === testId)
+        );
+    }
+    
     startTest(testId);
 }
 
@@ -927,7 +1030,8 @@ function updateScoreTracker() {
 }
 
 // اختيار إجابة
-function selectOption(index) {
+// اختيار إجابة
+async function selectOption(index) {
     const buttons = document.querySelectorAll('.option-btn');
     const currentQuestion = DB.currentTest.questions[DB.currentQuestionIndex];
     
@@ -960,8 +1064,8 @@ function selectOption(index) {
     // تحديث شريط النتائج
     updateScoreTracker();
     
-    // حفظ التقدم
-    saveProgress();
+    // حفظ التقدم في Firebase
+    await saveProgress();
     
     // الانتقال للسؤال التالي بعد ثانيتين
     setTimeout(() => {
@@ -969,8 +1073,8 @@ function selectOption(index) {
     }, 2000);
 }
 
-// حفظ تقدم الطالب
-function saveProgress() {
+// حفظ تقدم الطالب في Firebase
+async function saveProgress() {
     const test = DB.currentTest;
     let studentProgress = DB.students.find(
         s => s.name === DB.currentUser.name && s.testId === test.id
@@ -978,26 +1082,34 @@ function saveProgress() {
     
     const lastActivity = Date.now();
     
+    const studentData = {
+        name: DB.currentUser.name,
+        testId: test.id,
+        testName: test.name,
+        currentQuestion: DB.currentQuestionIndex,
+        answers: DB.userAnswers,
+        completed: false,
+        score: 0,
+        lastActivity: lastActivity,
+        startTime: Date.now()
+    };
+    
     if (studentProgress) {
         studentProgress.currentQuestion = DB.currentQuestionIndex;
         studentProgress.answers = DB.userAnswers;
         studentProgress.lastActivity = lastActivity;
+        
+        // تحديث في Firebase
+        if (studentProgress.id) {
+            await updateStudent(studentProgress.id, studentProgress);
+        }
     } else {
-        studentProgress = {
-            name: DB.currentUser.name,
-            testId: test.id,
-            testName: test.name,
-            currentQuestion: DB.currentQuestionIndex,
-            answers: DB.userAnswers,
-            completed: false,
-            score: 0,
-            lastActivity: lastActivity,
-            startTime: Date.now()
-        };
-        DB.students.push(studentProgress);
+        studentData.startTime = Date.now();
+        DB.students.push(studentData);
+        
+        // حفظ في Firebase
+        await saveStudent(studentData);
     }
-    
-    saveData();
 }
 
 // السؤال التالي
@@ -1007,7 +1119,8 @@ function nextQuestion() {
 }
 
 // إنهاء الاختبار
-function finishTest() {
+// إنهاء الاختبار
+async function finishTest() {
     const test = DB.currentTest;
     let score = 0;
     
@@ -1023,9 +1136,22 @@ function finishTest() {
     }
     
     // تحديث سجل الطالب
-    const studentProgress = DB.students.find(
+    let studentProgress = DB.students.find(
         s => s.name === DB.currentUser.name && s.testId === test.id
     );
+    
+    const finalStudentData = {
+        name: DB.currentUser.name,
+        testId: test.id,
+        testName: test.name,
+        completed: true,
+        score: score,
+        totalQuestions: test.questions.length,
+        completedAt: Date.now(),
+        currentQuestion: test.questions.length,
+        answers: DB.userAnswers,
+        lastActivity: Date.now()
+    };
     
     if (studentProgress) {
         studentProgress.completed = true;
@@ -1033,9 +1159,19 @@ function finishTest() {
         studentProgress.totalQuestions = test.questions.length;
         studentProgress.completedAt = Date.now();
         studentProgress.currentQuestion = test.questions.length;
+        
+        // تحديث في Firebase
+        if (studentProgress.id) {
+            await updateStudent(studentProgress.id, finalStudentData);
+        } else {
+            // حفظ كطالب جديد
+            await saveStudent(finalStudentData);
+        }
+    } else {
+        DB.students.push(finalStudentData);
+        // حفظ في Firebase
+        await saveStudent(finalStudentData);
     }
-    
-    saveData();
     
     // إخفاء شريط تتبع النتائج
     document.getElementById('scoreTracker').style.display = 'none';
@@ -1051,15 +1187,23 @@ function finishTest() {
 }
 
 // إعادة الاختبار
-function retakeTest() {
+async function retakeTest() {
     const test = DB.currentTest;
     
-    // حذف التقدم السابق
-    DB.students = DB.students.filter(
-        s => !(s.name === DB.currentUser.name && s.testId === test.id)
+    // حذف التقدم السابق من Firebase
+    const studentToDelete = DB.students.find(
+        s => s.name === DB.currentUser.name && s.testId === test.id
     );
     
-    saveData();
+    if (studentToDelete && studentToDelete.id) {
+        await deleteStudentFromFirebase(studentToDelete.id);
+    } else {
+        // حذف محلي فقط
+        DB.students = DB.students.filter(
+            s => !(s.name === DB.currentUser.name && s.testId === test.id)
+        );
+    }
+    
     startTest(test.id);
 }
 
@@ -1256,7 +1400,7 @@ function showAddQuestionForm() {
     document.getElementById('addQuestionForm').classList.add('active');
 }
 
-function handleAddQuestion(e) {
+async function handleAddQuestion(e) {
     e.preventDefault();
     
     const testId = document.getElementById('testSelect').value;
@@ -1279,7 +1423,9 @@ function handleAddQuestion(e) {
     };
     
     test.questions.push(newQuestion);
-    saveData();
+    
+    // حفظ في Firebase
+    await saveTest(test);
     
     document.getElementById('questionForm').reset();
     document.getElementById('addQuestionForm').classList.remove('active');
@@ -1287,17 +1433,20 @@ function handleAddQuestion(e) {
 }
 
 // حذف سؤال
-function deleteQuestion(testId, index) {
+async function deleteQuestion(testId, index) {
     if (confirm('هل أنت متأكد من حذف هذا السؤال؟')) {
         const test = DB.tests.find(t => t.id === testId);
         test.questions.splice(index, 1);
-        saveData();
+        
+        // حفظ في Firebase
+        await saveTest(test);
+        
         renderQuestionsList();
     }
 }
 
 // تعديل سؤال
-function editQuestion(testId, index) {
+async function editQuestion(testId, index) {
     const test = DB.tests.find(t => t.id === testId);
     const question = test.questions[index];
     
@@ -1313,7 +1462,7 @@ function editQuestion(testId, index) {
     
     // تغيير وظيفة الحفظ لحذف القديم وإضافة الجديد
     const form = document.getElementById('questionForm');
-    form.onsubmit = function(e) {
+    form.onsubmit = async function(e) {
         e.preventDefault();
         test.questions[index] = {
             text: document.getElementById('qText').value,
@@ -1326,7 +1475,10 @@ function editQuestion(testId, index) {
             correct: parseInt(document.getElementById('correctAnswer').value),
             category: document.getElementById('qCategory').value
         };
-        saveData();
+        
+        // حفظ في Firebase
+        await saveTest(test);
+        
         document.getElementById('questionForm').reset();
         document.getElementById('addQuestionForm').classList.remove('active');
         renderQuestionsList();
@@ -1385,17 +1537,16 @@ function showAddSectionModal() {
     document.getElementById('addSectionModal').classList.add('active');
 }
 
-function handleJsonUpload(e) {
+async function handleJsonUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
     
     const reader = new FileReader();
-    reader.onload = function(event) {
+    reader.onload = async function(event) {
         try {
             const data = JSON.parse(event.target.result);
             
             const newTest = {
-                id: Date.now(),
                 name: data.name || 'قسم جديد',
                 description: data.description || '',
                 icon: data.icon || 'fa-book',
@@ -1403,11 +1554,14 @@ function handleJsonUpload(e) {
                 createdAt: Date.now()
             };
             
-            DB.tests.push(newTest);
-            saveData();
+            // حفظ في Firebase
+            await db.collection('tests').add(newTest);
             
             document.getElementById('addSectionModal').classList.remove('active');
             document.getElementById('jsonFile').value = '';
+            
+            // إعادة تحميل البيانات
+            await loadData();
             renderSectionsList();
             alert('تم إضافة القسم بنجاح!');
         } catch (error) {
@@ -1417,31 +1571,11 @@ function handleJsonUpload(e) {
     reader.readAsText(file);
 }
 
-function copyTemplate() {
-    const template = {
-        "name": "اسم القسم",
-        "description": "وصف القسم",
-        "icon": "fa-book",
-        "questions": [
-            {
-                "text": "نص السؤال",
-                "options": ["الخيار 1", "الخيار 2", "الخيار 3", "الخيار 4"],
-                "correct": 0,
-                "category": "اسم القسم/التصنيف"
-            }
-        ]
-    };
-    
-    navigator.clipboard.writeText(JSON.stringify(template, null, 2));
-    alert('تم نسخ النموذج!');
-}
-
 // حذف قسم
-function deleteSection(testId) {
+async function deleteSection(testId) {
     if (confirm('هل أنت متأكد من حذف هذا القسم بالكامل؟')) {
-        DB.tests = DB.tests.filter(t => t.id !== testId);
-        DB.students = DB.students.filter(s => s.testId !== testId);
-        saveData();
+        // حذف من Firebase
+        await deleteTestFromFirebase(testId);
         renderSectionsList();
     }
 }
