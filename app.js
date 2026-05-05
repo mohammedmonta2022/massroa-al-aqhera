@@ -862,6 +862,8 @@ function renderQuestion() {
         btn.className = 'option-btn';
         btn.textContent = option;
         btn.addEventListener('click', () => selectOption(index));
+        // إضافة أنميشن دخول للخيارات
+        btn.style.animation = `fadeInUp 0.4s ease-out ${index * 0.1}s backwards`;
         optionsContainer.appendChild(btn);
     });
     
@@ -910,7 +912,8 @@ function selectOption(index) {
             // التحقق من الإجابة فوراً
             if (i === currentQuestion.correct) {
                 btn.classList.add('correct');
-                // تشغيل صوت نجاح خفيف (اختياري)
+                // تشغيل الاحتفال - وريقات ذهبية وخضراء
+                showMiniCelebration(btn);
             } else {
                 btn.classList.add('wrong');
                 // إظهار الإجابة الصحيحة
@@ -920,13 +923,17 @@ function selectOption(index) {
     });
     
     DB.userAnswers[DB.currentQuestionIndex] = index;
-    document.getElementById('nextBtn').disabled = false;
     
     // تحديث شريط النتائج
     updateScoreTracker();
     
     // حفظ التقدم
     saveProgress();
+    
+    // الانتقال للسؤال التالي بعد تأخير قصير
+    setTimeout(() => {
+        nextQuestion();
+    }, 1500);
 }
 
 // حفظ تقدم الطالب
@@ -1043,6 +1050,40 @@ function showCelebration() {
         celebration.classList.remove('active');
         celebration.innerHTML = '<div class="confetti"></div>';
     }, 4000);
+}
+
+// احتفال مصغر عند الإجابة الصحيحة
+function showMiniCelebration(element) {
+    const celebration = document.getElementById('celebration');
+    
+    // إنشاء وريقات احتفال صغيرة تنبثق من الزر
+    for (let i = 0; i < 30; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti mini-confetti';
+        
+        // الحصول على موقع الزر
+        const rect = element.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        confetti.style.left = centerX + 'px';
+        confetti.style.top = centerY + 'px';
+        confetti.style.backgroundColor = ['#ffd700', '#10b981', '#d4af37', '#f59e0b'][Math.floor(Math.random() * 4)];
+        confetti.style.animationDelay = Math.random() * 0.3 + 's';
+        confetti.style.animationDuration = (Math.random() * 1 + 1) + 's';
+        
+        // تعيين متغيرات CSS للحركة - زوايا موزعة بشكل دائري
+        const angle = (i / 30) * 2 * Math.PI; // بالراديان
+        const distance = 50 + Math.random() * 100;
+        confetti.style.setProperty('--angle', angle + 'rad');
+        confetti.style.setProperty('--distance', distance + 'px');
+        
+        celebration.appendChild(confetti);
+    }
+    
+    setTimeout(() => {
+        celebration.innerHTML = '<div class="confetti"></div>';
+    }, 2000);
 }
 
 // إنشاء نجوم الخلفية
