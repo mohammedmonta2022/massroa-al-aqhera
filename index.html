@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منصة الاختبارات التعليمية</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- صفحة تسجيل الدخول -->
+    <div id="loginPage" class="page active">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-header">
+                    <i class="fas fa-graduation-cap"></i>
+                    <h1>منصة الاختبارات التعليمية</h1>
+                    <p>مرحباً بك في منصة الاختبارات المتخصصة</p>
+                </div>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="fullName">الاسم الرباعي (إلزامي)</label>
+                        <input type="text" id="fullName" required placeholder="أدخل اسمك الرباعي كاملاً">
+                    </div>
+                    <button type="submit" class="btn-primary">
+                        <span>تسجيل الدخول</span>
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- الصفحة الرئيسية -->
+    <div id="mainPage" class="page">
+        <nav class="navbar">
+            <div class="nav-brand">
+                <i class="fas fa-graduation-cap"></i>
+                <span>منصة الاختبارات</span>
+            </div>
+            <div class="nav-user">
+                <span id="userName"></span>
+                <button id="logoutBtn" class="btn-logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </nav>
+
+        <div class="container">
+            <header class="page-header">
+                <h1>مشروع الآخرة</h1>
+                <p class="subtitle">منصة الاختبارات التعليمية المتخصصة</p>
+            </header>
+
+            <div id="testsGrid" class="tests-grid">
+                <!-- سيتم توليد الاختبارات هنا -->
+            </div>
+        </div>
+    </div>
+
+    <!-- صفحة الاختبار -->
+    <div id="testPage" class="page">
+        <nav class="navbar">
+            <div class="nav-brand">
+                <button onclick="showPage('mainPage')" class="btn-back">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                <span id="testTitle"></span>
+            </div>
+            <div class="test-progress">
+                <span id="questionCounter"></span>
+                <div class="progress-bar">
+                    <div id="progressFill"></div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container">
+            <div class="question-card">
+                <div class="question-header">
+                    <span class="question-number"></span>
+                    <span class="category-badge"></span>
+                </div>
+                <h2 class="question-text"></h2>
+                <div id="optionsContainer" class="options-container"></div>
+                <div class="question-actions">
+                    <button id="nextBtn" class="btn-primary" disabled>التالي</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- صفحة النتائج -->
+    <div id="resultPage" class="page">
+        <div class="container">
+            <div class="result-card">
+                <div class="result-icon">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <h2>نتيجة الاختبار</h2>
+                <div class="score-display">
+                    <span id="scoreValue"></span>
+                    <span id="scoreTotal"></span>
+                </div>
+                <div class="score-percentage" id="scorePercentage"></div>
+                <div class="result-actions">
+                    <button onclick="retakeTest()" class="btn-secondary">
+                        <i class="fas fa-redo"></i>
+                        إعادة الاختبار
+                    </button>
+                    <button onclick="showPage('mainPage')" class="btn-primary">
+                        العودة للرئيسية
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- لوحة المشرف -->
+    <div id="adminPage" class="page">
+        <nav class="navbar admin-nav">
+            <div class="nav-brand">
+                <button onclick="showPage('mainPage')" class="btn-back">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                <span>لوحة المشرف</span>
+            </div>
+            <div class="nav-user">
+                <span>منتصر محمد راغب يونس</span>
+            </div>
+        </nav>
+
+        <div class="container">
+            <div class="admin-tabs">
+                <button class="tab-btn active" data-tab="students">الطلاب</button>
+                <button class="tab-btn" data-tab="questions">الأسئلة</button>
+                <button class="tab-btn" data-tab="sections">الأقسام</button>
+                <button class="tab-btn" data-tab="stopped">المتوقفون</button>
+            </div>
+
+            <div id="studentsTab" class="tab-content active">
+                <h2>قائمة الطلاب ودرجاتهم</h2>
+                <div class="filter-section">
+                    <select id="testFilter">
+                        <option value="">جميع الاختبارات</option>
+                    </select>
+                </div>
+                <div id="studentsTable" class="data-table"></div>
+            </div>
+
+            <div id="questionsTab" class="tab-content">
+                <h2>إدارة الأسئلة</h2>
+                <div class="admin-actions">
+                    <select id="testSelect">
+                        <option value="">اختر الاختبار</option>
+                    </select>
+                    <button onclick="showAddQuestionForm()" class="btn-primary">
+                        <i class="fas fa-plus"></i> إضافة سؤال
+                    </button>
+                </div>
+                <div id="questionsList" class="questions-list"></div>
+                
+                <div id="addQuestionForm" class="modal">
+                    <div class="modal-content">
+                        <span class="close-modal">&times;</span>
+                        <h3>إضافة سؤال جديد</h3>
+                        <form id="questionForm">
+                            <div class="form-group">
+                                <label>نص السؤال</label>
+                                <textarea id="qText" required></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>الخيار 1</label>
+                                <input type="text" id="opt1" required>
+                            </div>
+                            <div class="form-group">
+                                <label>الخيار 2</label>
+                                <input type="text" id="opt2" required>
+                            </div>
+                            <div class="form-group">
+                                <label>الخيار 3</label>
+                                <input type="text" id="opt3" required>
+                            </div>
+                            <div class="form-group">
+                                <label>الخيار 4</label>
+                                <input type="text" id="opt4" required>
+                            </div>
+                            <div class="form-group">
+                                <label>الإجابة الصحيحة</label>
+                                <select id="correctAnswer" required>
+                                    <option value="0">الخيار 1</option>
+                                    <option value="1">الخيار 2</option>
+                                    <option value="2">الخيار 3</option>
+                                    <option value="3">الخيار 4</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>القسم</label>
+                                <input type="text" id="qCategory">
+                            </div>
+                            <button type="submit" class="btn-primary">حفظ</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sectionsTab" class="tab-content">
+                <h2>إدارة الأقسام</h2>
+                <div class="admin-actions">
+                    <button onclick="showAddSectionModal()" class="btn-primary">
+                        <i class="fas fa-plus"></i> إضافة قسم جديد
+                    </button>
+                </div>
+                <div id="sectionsList" class="sections-list"></div>
+
+                <div id="addSectionModal" class="modal">
+                    <div class="modal-content">
+                        <span class="close-modal">&times;</span>
+                        <h3>إضافة قسم جديد</h3>
+                        <div class="upload-section">
+                            <label class="file-upload">
+                                <input type="file" id="jsonFile" accept=".json">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <span>رفع ملف JSON</span>
+                            </label>
+                            <p class="help-text">أو انسخ النموذج التالي واستخدمه مع أي ذكاء اصطناعي:</p>
+                            <pre id="jsonTemplate"></pre>
+                            <button onclick="copyTemplate()" class="btn-secondary">
+                                <i class="fas fa-copy"></i> نسخ النموذج
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="stoppedTab" class="tab-content">
+                <h2>الطلاب المتوقفون</h2>
+                <p class="info-text">الطلاب الذين توقفوا عن الاختبار لأكثر من 5 دقائق</p>
+                <div id="stoppedList" class="stopped-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- احتفال -->
+    <div id="celebration" class="celebration">
+        <div class="confetti"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
