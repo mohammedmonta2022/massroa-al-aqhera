@@ -259,6 +259,17 @@ body::before {
     color: white;
 }
 
+.btn-cancel {
+    background: transparent;
+    border: 2px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+.btn-cancel:hover {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: var(--text-secondary);
+}
+
 .btn-logout {
     background: transparent;
     border: none;
@@ -421,7 +432,7 @@ body::before {
     border-radius: 15px;
     font-size: 11px;
     font-weight: 700;
-    margin-right: 8px;
+    margin-left: 8px;
     animation: newBadgePulse 2s ease-in-out infinite;
     display: inline-block;
     box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
@@ -862,6 +873,26 @@ body::before {
     display: flex;
 }
 
+.custom-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1001;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.custom-modal.show {
+    display: flex;
+    opacity: 1;
+}
+
 .modal-content {
     background: var(--card-bg);
     border-radius: 20px;
@@ -872,6 +903,32 @@ body::before {
     overflow-y: auto;
     position: relative;
     animation: slideUp 0.3s ease;
+}
+
+.custom-modal .modal-content {
+    max-width: 500px;
+    text-align: center;
+}
+
+.custom-modal h3 {
+    color: var(--primary-color);
+    margin-bottom: 15px;
+}
+
+.custom-modal p {
+    color: var(--text-secondary);
+    margin-bottom: 25px;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.modal-buttons .btn {
+    min-width: 140px;
 }
 
 .close-modal {
