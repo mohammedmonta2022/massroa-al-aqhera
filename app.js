@@ -781,7 +781,7 @@ function renderTestsGrid() {
             <div class="test-icon">
                 <i class="fas ${test.icon || 'fa-book'}"></i>
             </div>
-            <h3>${test.name} ${isNew ? '<span class="new-badge-label">جديد</span>' : ''}</h3>
+            <h3>${isNew ? '<span class="new-badge-label">جديد</span>' : ''}${test.name}</h3>
             <p>${test.description}</p>
             <div class="test-meta">
                 <span><i class="fas fa-question-circle"></i> ${test.questions.length} سؤال</span>
@@ -795,20 +795,29 @@ function renderTestsGrid() {
 }
 
 // بدء الاختبار
-function startTest(testId) {
+function startTest(testId, resume = false) {
     const test = DB.tests.find(t => t.id === testId);
     if (!test) return;
-    
-    DB.currentTest = test;
-    DB.currentQuestionIndex = 0;
-    DB.userAnswers = [];
     
     // التحقق من تقدم الطالب السابق
     const studentProgress = DB.students.find(
         s => s.name === DB.currentUser.name && s.testId === testId
     );
     
-    if (studentProgress && studentProgress.currentQuestion > 0 && !studentProgress.completed) {
+    // إذا كان هناك تقدم ولم يطلب المستخدم الإعادة صراحة، اعرض الخيارات
+    if (studentProgress && studentProgress.currentQuestion > 0 && !studentProgress.completed && !resume) {
+        showResumeOptions(testId);
+        return;
+    }
+    
+    DB.currentTest = test;
+    
+    // إذا كان اختبار جديد أو إعادة، احذف البيانات القديمة
+    if (resume || !studentProgress) {
+        DB.currentQuestionIndex = 0;
+        DB.userAnswers = [];
+    } else {
+        // استكمال من حيث توقف
         DB.currentQuestionIndex = studentProgress.currentQuestion;
         DB.userAnswers = studentProgress.answers || [];
     }
@@ -817,6 +826,26 @@ function startTest(testId) {
     showPage('testPage');
     renderQuestion();
     startTimer();
+}
+
+// عرض خيارات الاستكمال أو الإعادة
+function showResumeOptions(testId) {
+    const test = DB.tests.find(t => t.id === testId);
+    const modal = document.createElement('div');
+    modal.className = 'custom-modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <h3>لديك اختبار غير مكتمل في "${test.name}"</h3>
+            <p>هل تريد إكمال الاختبار من حيث توقفت أم البدء من جديد؟</p>
+            <div class="modal-buttons">
+                <button onclick="startTest(${testId}, true)" class="btn btn-primary">أكمل الاختبار</button>
+                <button onclick="retakeTestFromGrid(${testId})" class="btn btn-secondary">إعادة الاختبار</button>
+                <button onclick="this.closest('.custom-modal').remove()" class="btn btn-cancel">إلغاء</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    setTimeout(() => modal.classList.add('show'), 10);
 }
 
 // أكمل الاختبار من الشبكة
@@ -1321,7 +1350,7 @@ function renderSectionsList() {
         
         item.innerHTML = `
             <div>
-                <h4>${test.name} ${isNew ? '<span style="background: #f59e0b; color: white; padding: 2px 10px; border-radius: 10px; font-size: 12px;">جديد</span>' : ''}</h4>
+                <h4>${isNew ? '<span style="background: #f59e0b; color: white; padding: 2px 10px; border-radius: 10px; font-size: 12px; margin-left: 8px;" class="new-badge-label">جديد</span>' : ''}${test.name}</h4>
                 <p style="color: var(--text-secondary); font-size: 13px;">${test.questions.length} سؤال</p>
             </div>
             <div class="section-item-actions">
