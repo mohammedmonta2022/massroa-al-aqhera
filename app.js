@@ -600,6 +600,7 @@ const usoolQuestions = [
 // تهيئة التطبيق
 function init() {
     loadData();
+    // تحديث واجهة المشرف إذا كان مسجلاً
     setupEventListeners();
     showPage('loginPage');
 }
@@ -762,7 +763,10 @@ function setupEventListeners() {
     document.getElementById('questionForm').addEventListener('submit', handleAddQuestion);
     
     // Test Filter
-    document.getElementById('testFilter').addEventListener('change', renderStudentsTable);
+    document.getElementById('testFilter').addEventListener('change', renderAdminDashboard);
+    document.getElementById('testSelect').addEventListener('change', () => {
+        renderAdminDashboard();
+    });
 }
 
 // معالجة تسجيل الدخول
@@ -777,11 +781,12 @@ async function handleLogin(e) {
     
     DB.currentUser = {
         name: fullName,
-        loginTime: Date.now()
+        loginTime: Date.now(),
+        isAdmin: fullName.trim().replace(/\s+/g, ' ') === DB.adminName.trim().replace(/\s+/g, ' ')
     };
-    
+
     // التحقق مما إذا كان المشرف
-    if (fullName === DB.adminName) {
+    if (DB.currentUser.isAdmin) {
         showPage('adminPage');
         renderAdminDashboard();
     } else {
@@ -1354,7 +1359,7 @@ function deleteStudent(name, testId) {
     if (confirm(`هل أنت متأكد من حذف ${name} من هذا الاختبار؟`)) {
         DB.students = DB.students.filter(s => !(s.name === name && s.testId === testId));
         saveData();
-        renderStudentsTable();
+        renderAdminDashboard();
     }
 }
 
@@ -1429,7 +1434,7 @@ async function handleAddQuestion(e) {
     
     document.getElementById('questionForm').reset();
     document.getElementById('addQuestionForm').classList.remove('active');
-    renderQuestionsList();
+    renderAdminDashboard();
 }
 
 // حذف سؤال
@@ -1441,7 +1446,7 @@ async function deleteQuestion(testId, index) {
         // حفظ في Firebase
         await saveTest(test);
         
-        renderQuestionsList();
+        renderAdminDashboard();
     }
 }
 
@@ -1481,7 +1486,7 @@ async function editQuestion(testId, index) {
         
         document.getElementById('questionForm').reset();
         document.getElementById('addQuestionForm').classList.remove('active');
-        renderQuestionsList();
+        renderAdminDashboard();
         form.onsubmit = handleAddQuestion;
     };
 }
@@ -1560,9 +1565,9 @@ async function handleJsonUpload(e) {
             document.getElementById('addSectionModal').classList.remove('active');
             document.getElementById('jsonFile').value = '';
             
-            // إعادة تحميل البيانات
+            // إعادة تحميل البيانات وتحديث الواجهة
             await loadData();
-            renderSectionsList();
+            renderAdminDashboard();
             alert('تم إضافة القسم بنجاح!');
         } catch (error) {
             alert('خطأ في قراءة الملف. تأكد من صحة صيغة JSON');
@@ -1576,7 +1581,9 @@ async function deleteSection(testId) {
     if (confirm('هل أنت متأكد من حذف هذا القسم بالكامل؟')) {
         // حذف من Firebase
         await deleteTestFromFirebase(testId);
-        renderSectionsList();
+        // إعادة تحميل البيانات وتحديث الواجهة
+        await loadData();
+        renderAdminDashboard();
     }
 }
 
@@ -1639,7 +1646,7 @@ function init() {
     createStars(); // إنشاء نجوم الخلفية
     
     if (DB.currentUser) {
-        if (DB.currentUser.name === DB.adminName) {
+        if (DB.currentUser.isAdmin) {
             showPage('adminPage');
             renderAdminDashboard();
         } else {
