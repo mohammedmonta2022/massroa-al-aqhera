@@ -826,7 +826,12 @@ async function handleLogin(e) {
     } else {
         document.getElementById('userName').textContent = fullName;
         showPage('mainPage');
-        renderTestsGrid();
+        // التأكد من تحميل البيانات قبل عرض الاختبارات
+        if (DB.tests.length === 0) {
+            loadData().then(() => renderTestsGrid());
+        } else {
+            renderTestsGrid();
+        }
     }
 }
 
@@ -1720,8 +1725,8 @@ function updateTestFilters() {
 }
 
 // بدء التطبيق
-function init() {
-    loadData();
+async function init() {
+    await loadData();
     setupEventListeners();
     createStars(); // إنشاء نجوم الخلفية
     
