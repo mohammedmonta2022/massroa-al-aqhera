@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مسح بيانات Firebase</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #dc2626; }
+        button { padding: 15px 30px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; margin: 10px; }
+        .btn-danger { background: #dc2626; color: white; }
+        .btn-success { background: #16a34a; color: white; }
+        .btn-info { background: #2563eb; color: white; }
+        #status { margin-top: 20px; padding: 15px; border-radius: 5px; }
+        .success { background: #dcfce7; color: #166534; }
+        .error { background: #fee2e2; color: #991b1b; }
+    </style>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>⚠️ أداة مسح بيانات Firebase</h1>
+        <p>هذه الأداة ستقوم بمسح جميع الطلاب والاختبارات من قاعدة البيانات.</p>
+        <p><strong>تحذير:</strong> هذا الإجراء لا يمكن التراجع عنه!</p>
+        
+        <button class="btn-danger" onclick="clearAllData()">🗑️ مسح جميع البيانات</button>
+        <button class="btn-success" onclick="createDefaults()">✨ إنشاء الاختبارات الافتراضية</button>
+        <button class="btn-info" onclick="checkData()">📊 فحص البيانات الحالية</button>
+        
+        <div id="status"></div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCA4tJeZiDUKqEezjlW8UPS9Xv-EnHfwrc",
+            authDomain: "unity-msaed.firebaseapp.com",
+            projectId: "unity-msaed",
+            storageBucket: "unity-msaed.firebasestorage.app",
+            messagingSenderId: "237281388685",
+            appId: "1:237281388685:web:d9d143eeba27a5193b1ac4",
+            measurementId: "G-2QE1ZF3NNT"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = type;
+        }
+
+        async function clearAllData() {
+            if (!confirm('هل أنت متأكد تماماً؟ سيتم حذف جميع الطلاب والاختبارات!')) return;
+            
+            try {
+                showStatus('جاري المسح...', '');
+                
+                // مسح الطلاب
+                const studentsSnap = await db.collection('students').get();
+                const batch1 = db.batch();
+                studentsSnap.forEach(doc => batch1.delete(doc.ref));
+                await batch1.commit();
+                
+                // مسح الاختبارات
+                const testsSnap = await db.collection('tests').get();
+                const batch2 = db.batch();
+                testsSnap.forEach(doc => batch2.delete(doc.ref));
+                await batch2.commit();
+                
+                showStatus(`✅ تم المسح بنجاح! حذف ${studentsSnap.size} طالب و ${testsSnap.size} اختبار.`, 'success');
+            } catch (error) {
+                showStatus('❌ خطأ: ' + error.message, 'error');
+            }
+        }
+
+        async function createDefaults() {
+            try {
+                showStatus('جاري الإنشاء...', '');
+                
+                const defaultTests = [
+                    {
+                        name: 'اختبار الخاقانية',
+                        description: 'بنك الأسئلة التخصصي الشامل في المنظومة الخاقانية (40 سؤالاً)',
+                        icon: 'fa-book-quran',
+                        questions: [], // سنضيفها لاحقاً
+                        createdAt: Date.now()
+                    },
+                    {
+                        name: 'اختبار الأصول الستة',
+                        description: 'الأصول الستة في العقيدة والدعوة',
+                        icon: 'fa-star-and-crescent',
+                        questions: [],
+                        createdAt: Date.now()
+                    }
+                ];
+                
+                for (const test of defaultTests) {
+                    await db.collection('tests').add(test);
+                }
+                
+                showStatus('✅ تم إنشاء الاختبارات الافتراضية بنجاح!', 'success');
+            } catch (error) {
+                showStatus('❌ خطأ: ' + error.message, 'error');
+            }
+        }
+
+        async function checkData() {
+            try {
+                const studentsSnap = await db.collection('students').get();
+                const testsSnap = await db.collection('tests').get();
+                
+                showStatus(`📊 البيانات الحالية:\n- ${testsSnap.size} اختبار\n- ${studentsSnap.size} طالب`, 'success');
+            } catch (error) {
+                showStatus('❌ خطأ: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

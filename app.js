@@ -605,31 +605,38 @@ function init() {
     showPage('loginPage');
 }
 
-// تحميل البيانات من localStorage
 // تحميل البيانات من Firebase
 async function loadData() {
     try {
-        // تحميل الأقسام/الاختبارات
-        const testsSnapshot = await db.collection('tests').orderBy('createdAt', 'desc').get();
+        // تحميل الأقسام/الاختبارات بدون orderBy للسرعة
+        const testsSnapshot = await db.collection('tests').get();
         DB.tests = [];
         testsSnapshot.forEach(doc => {
             DB.tests.push({ id: doc.id, ...doc.data() });
         });
+        
+        // ترتيب الاختبارات حسب التاريخ يدوياً
+        DB.tests.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         
         // إذا لم تكن هناك اختبارات، نضيف الاختبارات الافتراضية
         if (DB.tests.length === 0) {
             await createDefaultTests();
         }
         
-        // تحميل الطلاب
+        // تحميل الطلاب بدون انتظار
         const studentsSnapshot = await db.collection('students').get();
         DB.students = [];
         studentsSnapshot.forEach(doc => {
             DB.students.push({ id: doc.id, ...doc.data() });
         });
+        
+        console.log('تم تحميل البيانات:', DB.tests.length, 'اختبار,', DB.students.length, 'طالب');
     } catch (error) {
         console.error('Error loading data:', error);
-        alert('حدث خطأ في تحميل البيانات. تأكد من اتصالك بالإنترنت.');
+        // في حالة الخطأ، نستخدم البيانات الفارغة ونحاول إنشاء الافتراضية
+        DB.tests = [];
+        DB.students = [];
+        await createDefaultTests();
     }
 }
 
@@ -656,8 +663,35 @@ async function createDefaultTests() {
         await db.collection('tests').add(test);
     }
     
-    // إعادة التحميل
-    await loadData();
+    // إعادة التحميل بدون انتظار
+    loadData();
+}
+
+// مسح جميع البيانات من Firebase
+async function clearAllData() {
+    try {
+        // مسح جميع الطلاب
+        const studentsSnapshot = await db.collection('students').get();
+        const batch = db.batch();
+        studentsSnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+        
+        // مسح جميع الاختبارات ما عدا الافتراضية (سنعيد إنشاءها)
+        const testsSnapshot = await db.collection('tests').get();
+        const testBatch = db.batch();
+        testsSnapshot.forEach(doc => {
+            testBatch.delete(doc.ref);
+        });
+        await testBatch.commit();
+        
+        console.log('تم مسح جميع البيانات بنجاح');
+        return true;
+    } catch (error) {
+        console.error('Error clearing data:', error);
+        return false;
+    }
 }
 
 // حفظ البيانات في Firebase
@@ -1069,16 +1103,13 @@ async function selectOption(index) {
     // تحديث شريط النتائج
     updateScoreTracker();
     
-    // حفظ التقدم في Firebase
-    await saveProgress();
-    
-    // الانتقال للسؤال التالي بعد ثانيتين
+    // الانتقال للسؤال التالي بعد ثانيتين (بدون حفظ في كل سؤال للسرعة)
     setTimeout(() => {
         nextQuestion();
     }, 2000);
 }
 
-// حفظ تقدم الطالب في Firebase
+// حفظ تقدم الطالب في Firebase (يُستخدم فقط عند الخروج أو إنهاء الاختبار)
 async function saveProgress() {
     const test = DB.currentTest;
     let studentProgress = DB.students.find(
@@ -1104,16 +1135,27 @@ async function saveProgress() {
         studentProgress.answers = DB.userAnswers;
         studentProgress.lastActivity = lastActivity;
         
-        // تحديث في Firebase
+        // تحديث في Firebase (بدون إعادة تحميل البيانات للسرعة)
         if (studentProgress.id) {
-            await updateStudent(studentProgress.id, studentProgress);
+            try {
+                await db.collection('students').doc(studentProgress.id).update(studentProgress);
+                // تحديث الـ ID في الكاش المحلي
+                Object.assign(studentProgress, studentData);
+                studentProgress.id = studentProgress.id;
+            } catch (error) {
+                console.error('Error updating progress:', error);
+            }
         }
     } else {
         studentData.startTime = Date.now();
-        DB.students.push(studentData);
-        
-        // حفظ في Firebase
-        await saveStudent(studentData);
+        // حفظ في Firebase (بدون إعادة تحميل البيانات للسرعة)
+        try {
+            const docRef = await db.collection('students').add(studentData);
+            studentData.id = docRef.id;
+            DB.students.push(studentData);
+        } catch (error) {
+            console.error('Error saving progress:', error);
+        }
     }
 }
 
@@ -1165,17 +1207,24 @@ async function finishTest() {
         studentProgress.completedAt = Date.now();
         studentProgress.currentQuestion = test.questions.length;
         
-        // تحديث في Firebase
+        // تحديث في Firebase (بدون إعادة تحميل البيانات للسرعة)
         if (studentProgress.id) {
-            await updateStudent(studentProgress.id, finalStudentData);
-        } else {
-            // حفظ كطالب جديد
-            await saveStudent(finalStudentData);
+            try {
+                await db.collection('students').doc(studentProgress.id).update(finalStudentData);
+                Object.assign(studentProgress, finalStudentData);
+            } catch (error) {
+                console.error('Error finishing test:', error);
+            }
         }
     } else {
-        DB.students.push(finalStudentData);
-        // حفظ في Firebase
-        await saveStudent(finalStudentData);
+        // حفظ في Firebase (بدون إعادة تحميل البيانات للسرعة)
+        try {
+            const docRef = await db.collection('students').add(finalStudentData);
+            finalStudentData.id = docRef.id;
+            DB.students.push(finalStudentData);
+        } catch (error) {
+            console.error('Error saving final result:', error);
+        }
     }
     
     // إخفاء شريط تتبع النتائج
@@ -1314,7 +1363,10 @@ function renderAdminDashboard() {
 // عرض جدول الطلاب
 function renderStudentsTable() {
     const table = document.getElementById('studentsTable');
-    const filter = document.getElementById('testFilter').value;
+    if (!table) return;
+    
+    const filterEl = document.getElementById('testFilter');
+    const filter = filterEl ? filterEl.value : '';
     
     let students = DB.students.filter(s => s.testId == filter || !filter);
     
@@ -1330,6 +1382,11 @@ function renderStudentsTable() {
             <span>الإجراءات</span>
         </div>
     `;
+    
+    if (students.length === 0) {
+        table.innerHTML += `<p class="info-text" style="grid-column: 1/-1; text-align: center;">لا يوجد طلاب مسجلين حتى الآن</p>`;
+        return;
+    }
     
     students.forEach(student => {
         const test = DB.tests.find(t => t.id === student.testId);
@@ -1355,10 +1412,17 @@ function renderStudentsTable() {
 }
 
 // حذف طالب
-function deleteStudent(name, testId) {
+async function deleteStudent(name, testId) {
     if (confirm(`هل أنت متأكد من حذف ${name} من هذا الاختبار؟`)) {
-        DB.students = DB.students.filter(s => !(s.name === name && s.testId === testId));
-        saveData();
+        const studentToDelete = DB.students.find(s => s.name === name && s.testId == testId);
+        if (studentToDelete && studentToDelete.id) {
+            try {
+                await db.collection('students').doc(studentToDelete.id).delete();
+            } catch (error) {
+                console.error('Error deleting student:', error);
+            }
+        }
+        DB.students = DB.students.filter(s => !(s.name === name && s.testId == testId));
         renderAdminDashboard();
     }
 }
@@ -1368,6 +1432,8 @@ function renderQuestionsList() {
     const list = document.getElementById('questionsList');
     const testSelect = document.getElementById('testSelect');
     
+    if (!list || !testSelect) return;
+    
     const testId = testSelect.value;
     if (!testId) {
         list.innerHTML = '<p class="info-text">الرجاء اختيار اختبار لعرض أسئلته</p>';
@@ -1375,7 +1441,10 @@ function renderQuestionsList() {
     }
     
     const test = DB.tests.find(t => t.id == testId);
-    if (!test) return;
+    if (!test) {
+        list.innerHTML = '<p class="info-text">الاختبار غير موجود</p>';
+        return;
+    }
     
     list.innerHTML = '';
     
@@ -1494,10 +1563,17 @@ async function editQuestion(testId, index) {
 // عرض قائمة الأقسام
 function renderSectionsList() {
     const list = document.getElementById('sectionsList');
+    if (!list) return;
+    
     list.innerHTML = '';
     
     const now = Date.now();
     const fiveDays = 5 * 24 * 60 * 60 * 1000;
+    
+    if (DB.tests.length === 0) {
+        list.innerHTML = '<p class="info-text">لا توجد أقسام متاحة</p>';
+        return;
+    }
     
     DB.tests.forEach(test => {
         const item = document.createElement('div');
@@ -1590,6 +1666,8 @@ async function deleteSection(testId) {
 // عرض الطلاب المتوقفين
 function renderStoppedList() {
     const list = document.getElementById('stoppedList');
+    if (!list) return;
+    
     list.innerHTML = '';
     
     const now = Date.now();
@@ -1629,6 +1707,8 @@ function checkStoppedStudents() {
 function updateTestFilters() {
     const testFilter = document.getElementById('testFilter');
     const testSelect = document.getElementById('testSelect');
+    
+    if (!testFilter || !testSelect) return;
     
     testFilter.innerHTML = '<option value="">جميع الاختبارات</option>';
     testSelect.innerHTML = '<option value="">اختر الاختبار</option>';
