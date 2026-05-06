@@ -816,25 +816,29 @@ async function handleLogin(e) {
         return;
     }
     
-    DB.currentUser = {
-        name: fullName,
-        loginTime: Date.now(),
-        isAdmin: fullName.trim().replace(/\s+/g, ' ') === DB.adminName.trim().replace(/\s+/g, ' ')
-    };
+    try {
+        DB.currentUser = {
+            name: fullName,
+            loginTime: Date.now(),
+            isAdmin: fullName.trim().replace(/\s+/g, ' ') === DB.adminName.trim().replace(/\s+/g, ' ')
+        };
 
-    // التحقق مما إذا كان المشرف
-    if (DB.currentUser.isAdmin) {
-        showPage('adminPage');
-        renderAdminDashboard();
-    } else {
-        document.getElementById('userName').textContent = fullName;
-        showPage('mainPage');
-        // التأكد من تحميل البيانات قبل عرض الاختبارات
-        if (DB.tests.length === 0) {
-            loadData().then(() => renderTestsGrid());
+        // تحميل البيانات أولاً
+        await loadData();
+
+        // التحقق مما إذا كان المشرف
+        if (DB.currentUser.isAdmin) {
+            showPage('adminPage');
+            renderAdminDashboard();
         } else {
+            document.getElementById('userName').textContent = fullName;
+            showPage('mainPage');
             renderTestsGrid();
         }
+    } catch (error) {
+        console.error('Error during login:', error);
+        alert('حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.');
+        DB.currentUser = null;
     }
 }
 
@@ -1631,7 +1635,7 @@ async function handleJsonUpload(e) {
     if (!file) return;
     
     // تعطيل الزر مؤقتاً لمنع النقر المتكرر
-    const uploadBtn = document.querySelector('input[type="file"]');
+    const uploadBtn = e.target;
     if (uploadBtn) uploadBtn.disabled = true;
     
     const reader = new FileReader();
@@ -1667,13 +1671,18 @@ async function handleJsonUpload(e) {
             // إعادة تحميل البيانات وتحديث الواجهة
             await loadData();
             renderAdminDashboard();
-            alert('تم إضافة القسم بنجاح!');
+            alert('✅ تم إضافة القسم بنجاح!');
         } catch (error) {
-            alert('خطأ في قراءة الملف. تأكد من صحة صيغة JSON');
+            console.error('Error uploading JSON:', error);
+            alert('❌ خطأ في قراءة الملف. تأكد من صحة صيغة JSON');
         } finally {
             // إعادة تفعيل الزر
             if (uploadBtn) uploadBtn.disabled = false;
         }
+    };
+    reader.onerror = function() {
+        alert('❌ خطأ في قراءة الملف');
+        if (uploadBtn) uploadBtn.disabled = false;
     };
     reader.readAsText(file);
 }
@@ -1681,11 +1690,28 @@ async function handleJsonUpload(e) {
 // حذف قسم
 async function deleteSection(testId) {
     if (confirm('هل أنت متأكد من حذف هذا القسم بالكامل؟')) {
-        // حذف من Firebase
-        await deleteTestFromFirebase(testId);
-        // إعادة تحميل البيانات وتحديث الواجهة
-        await loadData();
-        renderAdminDashboard();
+        try {
+            // حذف من Firebase
+            await db.collection('tests').doc(String(testId)).delete();
+            // حذف أسئلة الطلاب المرتبطة
+            const studentsSnapshot = await db.collection('students')
+                .where('testId', '==', testId)
+                .get();
+            if (!studentsSnapshot.empty) {
+                const batch = db.batch();
+                studentsSnapshot.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+            }
+            alert('✅ تم حذف القسم بنجاح!');
+            // إعادة تحميل البيانات وتحديث الواجهة
+            await loadData();
+            renderAdminDashboard();
+        } catch (error) {
+            console.error('Error deleting section:', error);
+            alert('❌ حدث خطأ أثناء الحذف: ' + error.message);
+        }
     }
 }
 
@@ -1762,6 +1788,113 @@ async function init() {
         }
     } else {
         showPage('loginPage');
+    }
+}
+
+// ==================== دوال الإعدادات ====================
+
+// عرض نافذة الإعدادات
+function showSettingsModal() {
+    document.getElementById('settingsModal').classList.add('active');
+}
+
+// إغلاق نافذة الإعدادات
+function closeSettingsModal() {
+    document.getElementById('settingsModal').classList.remove('active');
+}
+
+// مسح البيانات
+async function clearData(type) {
+    let confirmMsg = '';
+    if (type === 'students') {
+        confirmMsg = 'هل أنت متأكد من حذف جميع الطلاب؟';
+    } else if (type === 'tests') {
+        confirmMsg = 'هل أنت متأكد من حذف جميع الاختبارات والأقسام؟';
+    } else if (type === 'all') {
+        confirmMsg = 'تحذير: هل أنت متأكد تماماً من حذف كل البيانات (الطلاب والاختبارات)؟ هذا الإجراء لا يمكن التراجع عنه!';
+    }
+    
+    if (!confirm(confirmMsg)) return;
+    
+    try {
+        if (type === 'students' || type === 'all') {
+            const studentsSnap = await db.collection('students').get();
+            const batch = db.batch();
+            studentsSnap.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+            console.log(`تم حذف ${studentsSnap.size} طالب`);
+        }
+        
+        if (type === 'tests' || type === 'all') {
+            const testsSnap = await db.collection('tests').get();
+            const batch = db.batch();
+            testsSnap.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+            console.log(`تم حذف ${testsSnap.size} اختبار`);
+        }
+        
+        alert('✅ تم الحذف بنجاح!');
+        closeSettingsModal();
+        await loadData();
+        if (DB.currentUser && DB.currentUser.isAdmin) {
+            renderAdminDashboard();
+        }
+    } catch (error) {
+        console.error('Error clearing data:', error);
+        alert('❌ حدث خطأ أثناء الحذف: ' + error.message);
+    }
+}
+
+// استعادة الأقسام الافتراضية
+async function restoreDefaultSections() {
+    if (!confirm('هل تريد إضافة الأقسام الافتراضية (الخاقانية والأصول الستة) مع أسئلتها؟')) return;
+    
+    try {
+        // التحقق مما إذا كانت الأقسام موجودة مسبقاً
+        const existingKhagania = DB.tests.find(t => t.name === 'اختبار الخاقانية');
+        const existingUsool = DB.tests.find(t => t.name === 'اختبار الأصول الستة');
+        
+        if (existingKhagania && existingUsool) {
+            alert('الأقسام الافتراضية موجودة مسبقاً!');
+            closeSettingsModal();
+            return;
+        }
+        
+        const defaultTests = [];
+        
+        if (!existingKhagania) {
+            defaultTests.push({
+                name: 'اختبار الخاقانية',
+                description: 'بنك الأسئلة التخصصي الشامل في المنظومة الخاقانية (40 سؤالاً)',
+                icon: 'fa-book-quran',
+                questions: khaganiaQuestions,
+                createdAt: Date.now()
+            });
+        }
+        
+        if (!existingUsool) {
+            defaultTests.push({
+                name: 'اختبار الأصول الستة',
+                description: 'الأصول الستة في العقيدة والدعوة',
+                icon: 'fa-star-and-crescent',
+                questions: usoolQuestions,
+                createdAt: Date.now()
+            });
+        }
+        
+        for (const test of defaultTests) {
+            await db.collection('tests').add(test);
+        }
+        
+        alert(`✅ تم إضافة ${defaultTests.length} قسم افتراضي بنجاح!`);
+        closeSettingsModal();
+        await loadData();
+        if (DB.currentUser && DB.currentUser.isAdmin) {
+            renderAdminDashboard();
+        }
+    } catch (error) {
+        console.error('Error restoring default sections:', error);
+        alert('❌ حدث خطأ أثناء إضافة الأقسام: ' + error.message);
     }
 }
 

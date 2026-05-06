@@ -146,6 +146,9 @@
             </div>
             <div class="nav-user">
                 <span>منتصر محمد راغب يونس</span>
+                <button id="settingsBtn" class="btn-settings" onclick="showSettingsModal()">
+                    <i class="fas fa-cog"></i>
+                </button>
             </div>
         </nav>
 
@@ -256,6 +259,36 @@
                 <h2>الطلاب المتوقفون</h2>
                 <p class="info-text">الطلاب الذين توقفوا عن الاختبار لأكثر من 5 دقائق</p>
                 <div id="stoppedList" class="stopped-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة الإعدادات -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeSettingsModal()">&times;</span>
+            <h3>إعدادات البيانات</h3>
+            <div class="settings-section">
+                <h4>حذف البيانات</h4>
+                <p class="info-text">اختر نوع البيانات التي تريد حذفها:</p>
+                <div class="clear-options">
+                    <button class="btn-danger" onclick="clearData('students')">
+                        <i class="fas fa-users-slash"></i> حذف جميع الطلاب
+                    </button>
+                    <button class="btn-danger" onclick="clearData('tests')">
+                        <i class="fas fa-book-slash"></i> حذف جميع الاختبارات
+                    </button>
+                    <button class="btn-danger" onclick="clearData('all')">
+                        <i class="fas fa-trash-alt"></i> حذف كل البيانات
+                    </button>
+                </div>
+            </div>
+            <div class="settings-section">
+                <h4>استعادة الأقسام الافتراضية</h4>
+                <p class="info-text">إضافة الأقسام الحالية (الخاقانية والأصول الستة) مع أسئلتها وأجوبتها:</p>
+                <button class="btn-primary" onclick="restoreDefaultSections()">
+                    <i class="fas fa-plus-circle"></i> إضافة الأقسام الافتراضية
+                </button>
             </div>
         </div>
     </div>

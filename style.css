@@ -1227,6 +1227,63 @@ body::before {
     color: var(--warning-color);
 }
 
+/* Settings Modal */
+.btn-settings {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.3s;
+}
+
+.btn-settings:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.settings-section {
+    margin-bottom: 25px;
+    padding: 20px;
+    background: var(--bg-color);
+    border-radius: 10px;
+}
+
+.settings-section h4 {
+    color: var(--text-primary);
+    margin-bottom: 15px;
+    font-size: 18px;
+}
+
+.clear-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, var(--danger-color), #dc2626);
+    color: white;
+    border: none;
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s;
+    width: 100%;
+}
+
+.btn-danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .table-row {
@@ -1245,5 +1302,9 @@ body::before {
     .tab-btn {
         flex: none;
         width: calc(50% - 5px);
+    }
+    
+    .clear-options {
+        flex-direction: column;
     }
 }
