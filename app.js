@@ -823,8 +823,12 @@ async function handleLogin(e) {
             isAdmin: fullName.trim().replace(/\s+/g, ' ') === DB.adminName.trim().replace(/\s+/g, ' ')
         };
 
-        // تحميل البيانات أولاً
+        // تحميل البيانات أولاً وانتظار اكتمال التحميل
         await loadData();
+        
+        // تأكد من أن البيانات تم تحميلها
+        console.log('عدد الاختبارات المحملة:', DB.tests.length);
+        console.log('عدد الطلاب المحملين:', DB.students.length);
 
         // التحقق مما إذا كان المشرف
         if (DB.currentUser.isAdmin) {
@@ -833,7 +837,10 @@ async function handleLogin(e) {
         } else {
             document.getElementById('userName').textContent = fullName;
             showPage('mainPage');
-            renderTestsGrid();
+            // استدعاء renderTestsGrid بعد التأكد من عرض الصفحة
+            setTimeout(() => {
+                renderTestsGrid();
+            }, 100);
         }
     } catch (error) {
         console.error('Error during login:', error);
